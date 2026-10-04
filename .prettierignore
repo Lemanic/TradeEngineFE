@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+package-lock.json
+.idea
+
+# Generowane przez shadcn CLI — zostawiamy w formacie rejestru
+src/components/ui
