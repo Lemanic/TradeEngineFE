@@ -14,6 +14,8 @@ export const RANGES: readonly Range[] = ['24H', '7D', '30D', '90D', '1Y', 'ALL']
 
 export const CURRENCIES: readonly Currency[] = ['USD', 'PLN']
 
+export const INTERVALS: readonly Interval[] = ['1h', '4h', '1d']
+
 export const DEFAULT_RANGE: Range = '30D'
 
 /** Pełne nazwy zakresów — do etykiet dostępności i podpisu pod hero. */
@@ -50,8 +52,11 @@ export type Position = {
 }
 
 export type Summary = {
-  /** ISO 8601 — moment wykonania snapshotu. */
-  takenAt: string
+  /**
+   * ISO 8601 — moment wykonania snapshotu. `null`, gdy nie ma ani jednego
+   * snapshotu (`204` z `/summary`): nie ma pomiaru, więc nie ma i jego czasu.
+   */
+  takenAt: string | null
   currency: Currency
   total: number
   /** `false`, gdy snapshot nie objął wszystkich źródeł. */
@@ -61,10 +66,11 @@ export type Summary = {
     d7: Change | null
     d30: Change | null
   }
+  /** Historyczne maksimum. `null`, dopóki backend nie ma historii. */
   ath: {
     value: number
     at: string
-  }
+  } | null
   sources: Source[]
   positions: Position[]
 }

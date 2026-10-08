@@ -13,9 +13,6 @@ type KpiTilesProps = {
 }
 
 export function KpiTiles({ change, ath, total, currency }: KpiTilesProps) {
-  // Spadek od ATH jest zawsze <= 0, więc znak nadaje mu kierunek bez koloru.
-  const drawdown = ath.value > 0 ? total / ath.value - 1 : 0
-
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       <KpiTile label="24 godziny">
@@ -28,14 +25,39 @@ export function KpiTiles({ change, ath, total, currency }: KpiTilesProps) {
         <Delta change={change.d30} currency={currency} />
       </KpiTile>
       <KpiTile label="Maksimum (ATH)">
-        <span className="text-base font-medium num">
-          <Amount value={ath.value} currency={currency} />
-        </span>
-        <span className="block text-xs num text-muted-foreground">
-          {formatDate(ath.at)} · {formatSignedPercent(drawdown)} od ATH
-        </span>
+        <Ath ath={ath} total={total} currency={currency} />
       </KpiTile>
     </div>
+  )
+}
+
+type AthProps = {
+  ath: Summary['ath']
+  total: number
+  currency: Currency
+}
+
+/**
+ * Bez historii nie ma szczytu. Kafelek zostaje na siatce, a treść mówi
+ * „brak danych” — tak samo jak `Delta` przy pustej zmianie.
+ */
+function Ath({ ath, total, currency }: AthProps) {
+  if (!ath) {
+    return <span className="text-muted-foreground">brak danych</span>
+  }
+
+  // Spadek od ATH jest zawsze <= 0, więc znak nadaje mu kierunek bez koloru.
+  const drawdown = ath.value > 0 ? total / ath.value - 1 : 0
+
+  return (
+    <>
+      <span className="text-base font-medium num">
+        <Amount value={ath.value} currency={currency} />
+      </span>
+      <span className="block text-xs num text-muted-foreground">
+        {formatDate(ath.at)} · {formatSignedPercent(drawdown)} od ATH
+      </span>
+    </>
   )
 }
 

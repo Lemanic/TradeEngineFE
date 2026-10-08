@@ -9,6 +9,7 @@ const LOCALE = 'pl-PL'
 const moneyFormatters = new Map<Currency, Intl.NumberFormat>()
 const signedMoneyFormatters = new Map<Currency, Intl.NumberFormat>()
 const compactFormatters = new Map<Currency, Intl.NumberFormat>()
+const priceFormatters = new Map<Currency, Intl.NumberFormat>()
 
 function moneyFormatter(currency: Currency): Intl.NumberFormat {
   let formatter = moneyFormatters.get(currency)
@@ -28,6 +29,26 @@ function signedMoneyFormatter(currency: Currency): Intl.NumberFormat {
       signDisplay: 'always',
     })
     signedMoneyFormatters.set(currency, formatter)
+  }
+  return formatter
+}
+
+/**
+ * Cena poniżej 1 nie mieści się w dwóch miejscach po przecinku: aktywo po
+ * 0,0220914 USD pokazane jako „0,02 USD” to błąd kilkunastoprocentowy.
+ * Poniżej jedności liczą się więc cyfry znaczące, nie miejsca po przecinku.
+ */
+const PRICE_SIGNIFICANT_DIGITS = 6
+
+function priceFormatter(currency: Currency): Intl.NumberFormat {
+  let formatter = priceFormatters.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(LOCALE, {
+      style: 'currency',
+      currency,
+      maximumSignificantDigits: PRICE_SIGNIFICANT_DIGITS,
+    })
+    priceFormatters.set(currency, formatter)
   }
   return formatter
 }
@@ -70,6 +91,13 @@ const amountFormatter = new Intl.NumberFormat(LOCALE, {
   maximumFractionDigits: 4,
 })
 
+// Ilości przychodzą w pełnej precyzji — do 18 miejsc po przecinku. Cztery
+// miejsca zamieniłyby pył po ułamku tokena w „0”, więc poniżej jedności
+// znowu rządzą cyfry znaczące.
+const preciseAmountFormatter = new Intl.NumberFormat(LOCALE, {
+  maximumSignificantDigits: PRICE_SIGNIFICANT_DIGITS,
+})
+
 const dateFormatter = new Intl.DateTimeFormat(LOCALE, {
   day: '2-digit',
   month: '2-digit',
@@ -101,6 +129,18 @@ export function formatMoney(value: number, currency: Currency): string {
   return moneyFormatter(currency).format(value)
 }
 
+/**
+ * Cena jednostkowa. Od 1 w górę jak każda kwota (dwa miejsca), poniżej —
+ * z sześcioma cyframi znaczącymi. Backend stosuje tę samą regułę przy
+ * zaokrąglaniu, więc nie tracimy tu precyzji, którą przysłał.
+ */
+export function formatPrice(value: number, currency: Currency): string {
+  if (value !== 0 && Math.abs(value) < 1) {
+    return priceFormatter(currency).format(value)
+  }
+  return moneyFormatter(currency).format(value)
+}
+
 /** Kwota zawsze ze znakiem — zysk i strata nigdy nie zależą od samego koloru. */
 export function formatSignedMoney(value: number, currency: Currency): string {
   return signedMoneyFormatter(currency).format(value)
@@ -124,6 +164,9 @@ export function formatShare(value: number): string {
 }
 
 export function formatAmount(value: number): string {
+  if (value !== 0 && Math.abs(value) < 1) {
+    return preciseAmountFormatter.format(value)
+  }
   return amountFormatter.format(value)
 }
 
@@ -147,7 +190,9 @@ export function formatRelative(iso: string, now: Date = new Date()): string {
   const diffMs = new Date(iso).getTime() - now.getTime()
   const absMs = Math.abs(diffMs)
 
-  if (absMs < MINUTE_MS) return 'przed chwilą'
+  // Snapshot „z przyszłości” znaczy tylko, że zegar przeglądarki się spóźnia
+  // względem serwera. Pomiar już się odbył, więc nigdy nie mówimy „za 5 min”.
+  if (diffMs > 0 || absMs < MINUTE_MS) return 'przed chwilą'
   if (absMs < HOUR_MS) return relativeFormatter.format(Math.round(diffMs / MINUTE_MS), 'minute')
   if (absMs < DAY_MS) return relativeFormatter.format(Math.round(diffMs / HOUR_MS), 'hour')
   return relativeFormatter.format(Math.round(diffMs / DAY_MS), 'day')

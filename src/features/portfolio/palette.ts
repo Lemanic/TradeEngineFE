@@ -14,12 +14,46 @@ export const OTHER_SOURCE_COLOR = 'var(--chart-other)'
 
 const SLOT_COUNT = 6
 
-/** Kolor jest przypisany na stałe do nazwy źródła, nie do jego pozycji w rankingu. */
+/**
+ * Kolor jest przypisany na stałe do nazwy źródła, nie do jego pozycji
+ * w rankingu. Każde **realne** źródło musi tu być wpisane: nazwa nieznana
+ * z rejestru dostaje wolny slot alfabetycznie, więc jej kolor zmieniłby się
+ * w chwili, gdy dojdzie albo zniknie inne źródło — dokładnie to, czemu ten
+ * rejestr ma zapobiegać.
+ *
+ * Slot 5 (róż) jest celowo pominięty przy źródłach, które współistnieją
+ * z `Trezor`: zmierzone `validate_palette.js` (dataviz, `--pairs all`) daje
+ * dla pary róż–pomarańcz ΔE 12,9 przy pełnym widzeniu barw, czyli poniżej
+ * progu 15 — hard fail. W donucie każda para jest potencjalnie sąsiednia,
+ * bo kolejność wycinków zależy od wartości.
+ *
+ * ZMIERZONY LIMIT LICZBY KOLORÓW (`validate_palette.js --pairs all`, oba
+ * motywy, powierzchnie kart `#ffffff` i `#171717`):
+ *
+ * - **3 źródła**: slots 1-2-3 zdają wszystko.
+ * - **4 źródła**: zdają dokładnie dwa zestawy — `{1,4,5,6}` i `{4,5,6,7}`.
+ *   Obecny `{1,2,3,4}` oblewa próg pełnego widzenia na parze amber-pomarańcz
+ *   (ΔE 13,7 wobec progu 15). Pomarańcz slotu 2 jest tu winowajcą: zderza się
+ *   i z amberem, i z ciemną zielenią przy protanopii.
+ * - **5 źródeł**: **żaden** podzbiór udokumentowanej ósemki nie zdaje w obu
+ *   motywach. Przeszukane wszystkie 56 kombinacji.
+ *
+ * To nie jest brak dobrych hexów, a wiążący limit liczby serii: skill dataviz
+ * stwierdza to wprost („more than three series in an all-pairs form means
+ * fewer series or facets — not a palette change”). Donut traktujemy jako formę
+ * all-pairs, bo kolejność wycinków zależy od wartości, więc każda para może
+ * stać się sąsiednią. Przy piątym źródle trzeba zmienić formę wykresu albo
+ * liczbę kolorowanych serii — nie wartości kolorów.
+ *
+ * Tożsamości nie niesie tu jednak sam kolor: każdy wycinek ma etykietę
+ * w liście obok donuta (nazwa, udział, kwota), co jest wymogiem, nie ozdobą.
+ */
 const REGISTERED_SLOTS: Record<string, number> = {
   Rabby: 1,
   Trezor: 2,
-  'TAO staking': 3,
-  'TRB staking': 4,
+  Hyperliquid: 3,
+  'TAO staking': 4,
+  'TRB staking': 6,
 }
 
 function slotColor(slot: number): string {

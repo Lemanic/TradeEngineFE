@@ -6,3 +6,6 @@ package-lock.json
 
 # Generowane przez shadcn CLI — zostawiamy w formacie rejestru
 src/components/ui
+
+# Generowane z OpenAPI backendu przez openapi-typescript
+src/api/schema.d.ts

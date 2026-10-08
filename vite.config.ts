@@ -31,6 +31,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
+      // Testy widoku sprawdzają widok, nie backend: ta flaga karmi hooki
+      // danymi testowymi, więc nic w testach nie dotyka `fetch`.
+      env: { VITE_MOCK: '1' },
       // CSS nie jest przetwarzany: testy nie sprawdzają stylów, a jsdom
       // nie parsuje nowoczesnego CSS-a Tailwinda i zasypuje wyjście ostrzeżeniami.
       css: false,

@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+
+import { fetchHistory, fetchSummary } from '@/api/portfolio'
 
 import {
   emptyHistoryFixture,
@@ -11,9 +14,9 @@ import type { Currency, History, Range, Summary } from './types'
 /**
  * Jedyne miejsce, z którego widok bierze dane.
  *
- * Kształt wyniku jest celowo taki jak w TanStack Query, żeby podłączenie
- * backendu sprowadzało się do podmiany wnętrza tych dwóch hooków na
- * `useQuery` — bez dotykania komponentów.
+ * Kształt wyniku jest węższy niż `UseQueryResult` celowo: komponenty mają
+ * widzieć tylko te cztery pola, żeby dane testowe i odpowiedź z API dawały
+ * się podstawić jedno za drugie bez dotykania widoku.
  */
 export type QueryResult<T> = {
   data: T | undefined
@@ -32,63 +35,82 @@ export function readPreviewState(search: string): PreviewState | null {
   return PREVIEW_STATES.find((state) => state === value) ?? null
 }
 
-function currentPreviewState(): PreviewState | null {
-  if (typeof window === 'undefined') return null
-  return readPreviewState(window.location.search)
+/**
+ * Dane testowe mają dokładnie dwa wejścia: `?state=` w URL-u i `VITE_MOCK=1`
+ * (`npm run dev:mock`, a także testy widoku). **Nigdy** nie są fallbackiem po
+ * błędzie API — ciche podstawienie fikcyjnych liczb jest gorsze niż komunikat
+ * o awarii, bo użytkownik podejmuje na nich decyzje finansowe.
+ *
+ * `full` to po prostu normalny dashboard na danych testowych.
+ */
+type DemoMode = PreviewState | 'full'
+
+function currentDemoMode(): DemoMode | null {
+  if (typeof window !== 'undefined') {
+    const preview = readPreviewState(window.location.search)
+    if (preview) return preview
+  }
+  return import.meta.env.VITE_MOCK === '1' ? 'full' : null
 }
 
-/**
- * Licznik wymuszający przeliczenie. `refetch` z danymi testowymi nie ma czego
- * dociągać, ale musi istnieć i działać, bo przycisk „Spróbuj ponownie” jest
- * częścią widoku. Przy `?state=error` ponowienie nadal zwraca błąd — stan
- * jest wymuszony URL-em, nie losowy.
- */
-function useRefetchCounter() {
-  const [counter, setCounter] = useState(0)
-  const refetch = useCallback(() => setCounter((value) => value + 1), [])
-  return { counter, refetch }
+function demoSummary(mode: DemoMode, currency: Currency): Summary | undefined {
+  if (mode === 'loading' || mode === 'error') return undefined
+  if (mode === 'empty') return emptySummaryFixture(currency)
+  return summaryFixture(currency, { incomplete: mode === 'incomplete' })
+}
+
+function demoHistory(mode: DemoMode, range: Range, currency: Currency): History | undefined {
+  if (mode === 'loading' || mode === 'error') return undefined
+  if (mode === 'empty') return emptyHistoryFixture(range, currency)
+  return historyFixture(range, currency, { incomplete: mode === 'incomplete' })
 }
 
 export function useSummary(currency: Currency): QueryResult<Summary> {
-  const { counter, refetch } = useRefetchCounter()
+  const demo = currentDemoMode()
 
-  const data = useMemo(() => {
-    void counter
-    const preview = currentPreviewState()
+  const query = useQuery({
+    queryKey: ['portfolio', 'summary', currency],
+    queryFn: ({ signal }) => fetchSummary(currency, signal),
+    enabled: demo === null,
+  })
 
-    if (preview === 'loading' || preview === 'error') return undefined
-    if (preview === 'empty') return emptySummaryFixture(currency)
-    return summaryFixture(currency, { incomplete: preview === 'incomplete' })
-  }, [currency, counter])
+  const { refetch: refetchQuery } = query
+  const refetch = useCallback(() => void refetchQuery(), [refetchQuery])
 
-  const preview = currentPreviewState()
+  // Generator danych testowych buduje całą serię godzinową, więc nie wołamy
+  // go, dopóki tryb demo nie jest włączony.
+  const demoData = useMemo(
+    () => (demo === null ? undefined : demoSummary(demo, currency)),
+    [demo, currency],
+  )
 
-  return {
-    data,
-    isPending: preview === 'loading',
-    isError: preview === 'error',
-    refetch,
+  if (demo !== null) {
+    return { data: demoData, isPending: demo === 'loading', isError: demo === 'error', refetch }
   }
+
+  return { data: query.data, isPending: query.isPending, isError: query.isError, refetch }
 }
 
 export function useHistory(range: Range, currency: Currency): QueryResult<History> {
-  const { counter, refetch } = useRefetchCounter()
+  const demo = currentDemoMode()
 
-  const data = useMemo(() => {
-    void counter
-    const preview = currentPreviewState()
+  const query = useQuery({
+    queryKey: ['portfolio', 'history', range, currency],
+    queryFn: ({ signal }) => fetchHistory(range, currency, signal),
+    enabled: demo === null,
+  })
 
-    if (preview === 'loading' || preview === 'error') return undefined
-    if (preview === 'empty') return emptyHistoryFixture(range, currency)
-    return historyFixture(range, currency, { incomplete: preview === 'incomplete' })
-  }, [range, currency, counter])
+  const { refetch: refetchQuery } = query
+  const refetch = useCallback(() => void refetchQuery(), [refetchQuery])
 
-  const preview = currentPreviewState()
+  const demoData = useMemo(
+    () => (demo === null ? undefined : demoHistory(demo, range, currency)),
+    [demo, range, currency],
+  )
 
-  return {
-    data,
-    isPending: preview === 'loading',
-    isError: preview === 'error',
-    refetch,
+  if (demo !== null) {
+    return { data: demoData, isPending: demo === 'loading', isError: demo === 'error', refetch }
   }
+
+  return { data: query.data, isPending: query.isPending, isError: query.isError, refetch }
 }

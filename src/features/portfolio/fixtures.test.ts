@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { historyFixture, PLN_RATE, snapshotTime, summaryFixture } from './fixtures'
+import {
+  emptySummaryFixture,
+  historyFixture,
+  PLN_RATE,
+  snapshotTime,
+  summaryFixture,
+} from './fixtures'
 import { RANGES, type Range } from './types'
 
 const NOW = new Date(2026, 9, 4, 9, 12)
@@ -92,7 +98,18 @@ describe('podsumowanie', () => {
   it('ATH nie jest niższe od bieżącej wartości', () => {
     const summary = summaryFixture('USD', { now: NOW })
 
-    expect(summary.ath.value).toBeGreaterThanOrEqual(summary.total)
+    expect(summary.ath).not.toBeNull()
+    expect(summary.ath?.value).toBeGreaterThanOrEqual(summary.total)
+  })
+
+  // Pusta baza nie ma historii ani snapshotu, więc nie ma ani szczytu, ani
+  // czasu pomiaru — zamiast zer zwracamy `null`, tak jak `204` z backendu.
+  it('pusta baza nie ma ani ATH, ani czasu snapshotu', () => {
+    const summary = emptySummaryFixture('USD')
+
+    expect(summary.ath).toBeNull()
+    expect(summary.takenAt).toBeNull()
+    expect(summary.sources).toEqual([])
   })
 
   // Hero i kafelki nie mogą pokazywać zmiany przeciwnej do tego, co widać
