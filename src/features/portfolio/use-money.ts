@@ -6,6 +6,7 @@ import {
   formatAmount,
   formatCompactMoney,
   formatMoney,
+  formatPrice,
   formatSignedMoney,
   PRIVATE_MASK,
 } from './format'
@@ -19,6 +20,12 @@ export type MoneyFormatters = {
   signedMoney: (value: number) => string
   /** „47,9 tys. USD” albo maska. */
   compactMoney: (value: number) => string
+  /**
+   * Cena jednostkowa: „2716,85 USD”, ale „0,0220914 USD” poniżej jedności.
+   * Maskowana jak każda kwota, choć sama jest publicznie znana — bez niej
+   * zamaskowana ilość i tak nie zdradza wartości pozycji.
+   */
+  price: (value: number) => string
   /** Skrót bez waluty — na oś Y, gdzie waluta jest już w nagłówku. */
   axisMoney: (value: number) => string
   /**
@@ -43,6 +50,7 @@ export function useMoney(currency: Currency): MoneyFormatters {
         money: mask,
         signedMoney: mask,
         compactMoney: mask,
+        price: mask,
         axisMoney: mask,
         quantity: mask,
       }
@@ -53,6 +61,7 @@ export function useMoney(currency: Currency): MoneyFormatters {
       money: (value: number) => formatMoney(value, currency),
       signedMoney: (value: number) => formatSignedMoney(value, currency),
       compactMoney: (value: number) => formatCompactMoney(value, currency),
+      price: (value: number) => formatPrice(value, currency),
       axisMoney: (value: number) =>
         new Intl.NumberFormat('pl-PL', { notation: 'compact', maximumFractionDigits: 1 }).format(
           value,

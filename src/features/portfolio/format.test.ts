@@ -7,6 +7,7 @@ import {
   formatDate,
   formatMoney,
   formatPointLabel,
+  formatPrice,
   formatRelative,
   formatShare,
   formatSignedMoney,
@@ -34,10 +35,28 @@ describe('kwoty', () => {
     expect(formatCompactMoney(47899.88, 'USD')).toBe(`47,9${NBSP}tys.${NBSP}USD`)
   })
 
-  it('pokazuje ilość aktywa z maksymalnie czterema miejscami', () => {
+  it('pokazuje ilość od jedności w górę z maksymalnie czterema miejscami', () => {
     expect(formatAmount(2.41)).toBe('2,41')
     expect(formatAmount(3400.42)).toBe('3400,42')
-    expect(formatAmount(0.123456)).toBe('0,1235')
+    expect(formatAmount(21.123456)).toBe('21,1235')
+  })
+
+  // `amount` przychodzi z backendu w pełnej precyzji, do 18 miejsc po
+  // przecinku. Cztery miejsca zrobiłyby z ułamka tokena „0”.
+  // Przez `Number`, bo tyle cyfr nie mieści się w literale `double` —
+  // i tak samo zaokrągli je `JSON.parse` na prawdziwej odpowiedzi.
+  it('nie gubi ułamka tokena poniżej jedności', () => {
+    expect(formatAmount(Number('0.028667606706023812'))).toBe('0,0286676')
+    expect(formatAmount(1e-18)).toBe('0,000000000000000001')
+    expect(formatAmount(0)).toBe('0')
+  })
+
+  it('cena poniżej jedności ma cyfry znaczące, nie dwa miejsca', () => {
+    expect(formatPrice(2716.85, 'USD')).toBe(`2716,85${NBSP}USD`)
+    expect(formatPrice(511.63, 'USD')).toBe(`511,63${NBSP}USD`)
+    expect(formatPrice(0.0220914, 'USD')).toBe(`0,0220914${NBSP}USD`)
+    expect(formatPrice(0.0220914, 'PLN')).toBe(`0,0220914${NBSP}zł`)
+    expect(formatPrice(0, 'USD')).toBe(`0,00${NBSP}USD`)
   })
 })
 
@@ -75,5 +94,13 @@ describe('daty', () => {
     expect(formatRelative(new Date(2026, 9, 4, 6, 12).toISOString(), now)).toBe('2 godz. temu')
     expect(formatRelative(new Date(2026, 9, 1, 8, 12).toISOString(), now)).toBe('3 dni temu')
     expect(formatRelative(new Date(2026, 9, 4, 8, 11, 40).toISOString(), now)).toBe('przed chwilą')
+  })
+
+  // Zegar przeglądarki bywa spóźniony względem serwera — snapshot wypada
+  // wtedy „w przyszłości”, ale pomiar już się odbył.
+  it('snapshot z przyszłości to też „przed chwilą”', () => {
+    const now = new Date(2026, 9, 4, 8, 12)
+
+    expect(formatRelative(new Date(2026, 9, 4, 8, 17).toISOString(), now)).toBe('przed chwilą')
   })
 })

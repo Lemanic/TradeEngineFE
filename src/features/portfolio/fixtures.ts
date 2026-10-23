@@ -337,16 +337,15 @@ export function historyFixture(
 }
 
 /** Portfel bez ani jednego snapshotu — stan pusty widoku. */
-export function emptySummaryFixture(currency: Currency, options: FixtureOptions = {}): Summary {
-  const takenAt = snapshotTime(options.now)
-
+/** Odpowiada `204` z `/summary`: pusta baza, więc ani snapshotu, ani jego czasu. */
+export function emptySummaryFixture(currency: Currency): Summary {
   return {
-    takenAt: takenAt.toISOString(),
+    takenAt: null,
     currency,
     total: 0,
     complete: true,
     change: { h24: null, d7: null, d30: null },
-    ath: { value: 0, at: takenAt.toISOString() },
+    ath: null,
     sources: [],
     positions: [],
   }

@@ -87,7 +87,7 @@ export function PositionsTable({ positions, currency, sort, onSortChange }: Posi
               <span className="block text-xs">{position.network}</span>
             </TableCell>
             <TableCell className="text-right num">{money.quantity(position.amount)}</TableCell>
-            <TableCell className="text-right num">{money.money(position.price)}</TableCell>
+            <TableCell className="text-right num">{money.price(position.price)}</TableCell>
             <TableCell className="text-right font-medium num">
               {money.money(position.value)}
             </TableCell>

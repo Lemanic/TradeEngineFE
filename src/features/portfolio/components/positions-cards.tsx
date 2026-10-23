@@ -33,7 +33,7 @@ export function PositionsCards({ positions, currency }: PositionsCardsProps) {
             </div>
             <div className="mt-1 flex items-baseline justify-between gap-2 text-xs text-muted-foreground">
               <span className="min-w-0 truncate num">
-                {money.quantity(position.amount)} × {money.money(position.price)}
+                {money.quantity(position.amount)} × {money.price(position.price)}
               </span>
               <span className="shrink-0 num">{formatShare(position.pct)}</span>
             </div>
