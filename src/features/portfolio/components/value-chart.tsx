@@ -1,14 +1,14 @@
 import { useId, useMemo } from 'react'
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, CartesianGrid, ReferenceLine, XAxis, YAxis } from 'recharts'
 import type { TooltipContentProps } from 'recharts'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart'
 import { usePrefersReducedMotion } from '@/hooks/use-prefers-reduced-motion'
 
-import { niceScale } from '../chart-scale'
-import { formatAxisTick, formatPointLabel } from '../format'
-import type { Currency, History, HistoryPoint, Range } from '../types'
+import { niceScale, percentScale, type PercentScale } from '../chart-scale'
+import { formatAxisPercent, formatAxisTick, formatPointLabel, formatSignedPercent } from '../format'
+import { RANGE_LABELS, type Currency, type History, type HistoryPoint, type Range } from '../types'
 import { useMoney } from '../use-money'
 import { RangeSwitcher } from './range-switcher'
 
@@ -41,10 +41,27 @@ export function ValueChart({ history, currency, range, onRangeChange }: ValueCha
     [history.points],
   )
 
+  /**
+   * W trybie prywatnym kwoty z osi znikają, ale kształt krzywej zostaje — bez
+   * żadnej skali nie da się jej odczytać. Procent wobec początku zakresu nie
+   * zdradza wielkości portfela, więc oś przełączamy, a nie chowamy.
+   */
+  const percent = useMemo(
+    () => (money.isPrivate ? percentScale(history.points) : null),
+    [money.isPrivate, history.points],
+  )
+
   return (
     <Card className="min-w-0">
       <CardHeader className="flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>Wartość portfela</CardTitle>
+        <div className="min-w-0">
+          <CardTitle>Wartość portfela</CardTitle>
+          {percent && (
+            <CardDescription className="mt-1">
+              zmiana % od początku okresu · {RANGE_LABELS[range]}
+            </CardDescription>
+          )}
+        </div>
         <RangeSwitcher value={range} onChange={onRangeChange} />
       </CardHeader>
       <CardContent className="px-2 sm:px-4">
@@ -76,16 +93,33 @@ export function ValueChart({ history, currency, range, onRangeChange }: ValueCha
               tickFormatter={(value: string) => formatAxisTick(value, range)}
             />
             <YAxis
-              hide={money.isPrivate}
-              /* Etykieta „47,9 tys.” potrzebuje miejsca — przy węższej osi ucina się. */
-              width={72}
+              /* Bez skali procentowej (portfel wystartował od zera) oś nie ma
+                 co pokazać w trybie prywatnym — wtedy znika jak wcześniej. */
+              hide={money.isPrivate && !percent}
+              /* Etykieta „47,9 tys.” potrzebuje miejsca — przy węższej osi ucina się.
+                 Procent („+2,5%”) mieści się w połowie tego. */
+              width={percent ? 52 : 72}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              domain={scale.domain}
-              ticks={scale.ticks}
-              tickFormatter={money.axisMoney}
+              domain={percent ? percent.domain : scale.domain}
+              ticks={percent ? percent.ticks : scale.ticks}
+              tickFormatter={
+                percent
+                  ? (value: number) => formatAxisPercent(percent.pctOf(value))
+                  : money.axisMoney
+              }
             />
+
+            {/* Linia zera: pozwala odczytać wzrost i spadek bez liczenia po tickach. */}
+            {percent && (
+              <ReferenceLine
+                y={percent.base}
+                stroke="var(--chart-axis)"
+                strokeDasharray="4 4"
+                strokeWidth={1}
+              />
+            )}
 
             <ChartTooltip
               cursor={{ stroke: 'var(--chart-axis)', strokeWidth: 1 }}
@@ -95,15 +129,12 @@ export function ValueChart({ history, currency, range, onRangeChange }: ValueCha
                 if (!point) return null
 
                 return (
-                  <div className="grid gap-1 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md">
-                    <span className="text-sm font-semibold num">{money.money(point.value)}</span>
-                    <span className="text-muted-foreground">
-                      {formatPointLabel(point.t, range)}
-                    </span>
-                    {!point.complete && (
-                      <span className="text-muted-foreground">snapshot niepełny</span>
-                    )}
-                  </div>
+                  <ValueTooltipContent
+                    point={point}
+                    range={range}
+                    currency={currency}
+                    percent={percent}
+                  />
                 )
               }}
             />
@@ -124,5 +155,34 @@ export function ValueChart({ history, currency, range, onRangeChange }: ValueCha
         </ChartContainer>
       </CardContent>
     </Card>
+  )
+}
+
+type ValueTooltipContentProps = {
+  point: HistoryPoint
+  range: Range
+  currency: Currency
+  /** Skala procentowa trybu prywatnego; `null` poza nim. */
+  percent: PercentScale | null
+}
+
+/**
+ * Treść tooltipa wykresu. Osobny komponent, bo Recharts w jsdom nie renderuje
+ * wykresu (kontener ma zerowe wymiary) — inaczej nie dałoby się jej przetestować.
+ *
+ * W trybie prywatnym pokazuje procent wobec początku okresu zamiast maski:
+ * sama maska `•••••` w tooltipie nie niosła żadnej informacji.
+ */
+export function ValueTooltipContent({ point, range, currency, percent }: ValueTooltipContentProps) {
+  const money = useMoney(currency)
+
+  return (
+    <div className="grid gap-1 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md">
+      <span className="text-sm font-semibold num">
+        {percent ? formatSignedPercent(percent.pctOf(point.value)) : money.money(point.value)}
+      </span>
+      <span className="text-muted-foreground">{formatPointLabel(point.t, range)}</span>
+      {!point.complete && <span className="text-muted-foreground">snapshot niepełny</span>}
+    </div>
   )
 }

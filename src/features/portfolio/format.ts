@@ -86,6 +86,14 @@ const sharePercentFormatter = new Intl.NumberFormat(LOCALE, {
   maximumFractionDigits: 1,
 })
 
+// Oś procentowa wykresu. Jedna cyfra po przecinku, bo ticki są okrągłe, a
+// zero zostaje bez znaku — „0%” to linia odniesienia, nie zmiana.
+const axisPercentFormatter = new Intl.NumberFormat(LOCALE, {
+  style: 'percent',
+  signDisplay: 'exceptZero',
+  maximumFractionDigits: 1,
+})
+
 const amountFormatter = new Intl.NumberFormat(LOCALE, {
   minimumFractionDigits: 0,
   maximumFractionDigits: 4,
@@ -161,6 +169,11 @@ export function formatSignedPercent(value: number): string {
 /** Udział w portfelu — jedna cyfra po przecinku wystarcza. */
 export function formatShare(value: number): string {
   return sharePercentFormatter.format(value)
+}
+
+/** Etykieta osi Y w trybie prywatnym: „+2,5%”, „0%”, „-1,2%”. */
+export function formatAxisPercent(value: number): string {
+  return axisPercentFormatter.format(value)
 }
 
 export function formatAmount(value: number): string {

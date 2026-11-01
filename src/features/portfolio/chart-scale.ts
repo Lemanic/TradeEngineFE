@@ -37,3 +37,62 @@ export function niceScale(values: readonly number[], tickCount = 5): Scale {
 
   return { domain: [start, end], ticks }
 }
+
+/**
+ * Oś procentowa trybu prywatnego. Dane na wykresie zostają kwotowe — tutaj
+ * liczymy okrągłe kroki w procentach i mapujemy je z powrotem na wartości
+ * (`base * (1 + pct)`). Dzięki temu krzywa, domena i tooltip nie wiedzą o
+ * zmianie jednostki, a oś pokazuje „+2%”, a nie procent wynikły z okrągłej
+ * kwoty.
+ */
+export type PercentScale = Scale & {
+  /** Wartość odniesienia — zero na osi. */
+  base: number
+  /** Udział wobec bazy: 0 na linii zera, 0,05 dla +5%. */
+  pctOf: (value: number) => number
+}
+
+/** Tyle z `HistoryPoint`, ile potrzebuje skala — bez importu typów domenowych. */
+type ScalePoint = {
+  value: number
+  complete: boolean
+}
+
+/** Seria bez rozpiętości dostaje pasmo ±1%, inaczej domena byłaby punktem. */
+const FLAT_PERCENT_BAND = 0.01
+
+/**
+ * Bazą jest pierwszy **pełny** snapshot zakresu: niepełny ma zaniżoną wartość,
+ * więc zero osi wypadłoby za nisko i cała krzywa wisiałaby nad linią zera.
+ * Gdy pełnego nie ma, bierzemy pierwszy dodatni — przesunięta oś jest wciąż
+ * lepsza niż jej brak. Wartość zero bazą być nie może: procent z niej nie istnieje.
+ */
+function percentBase(points: readonly ScalePoint[]): number | null {
+  const complete = points.find((point) => point.complete && point.value > 0)
+  if (complete) return complete.value
+
+  const any = points.find((point) => point.value > 0)
+  return any ? any.value : null
+}
+
+export function percentScale(points: readonly ScalePoint[], tickCount = 5): PercentScale | null {
+  const base = percentBase(points)
+  if (base === null) return null
+
+  const pctOf = (value: number) => Math.round((value / base - 1) * 1e6) / 1e6
+
+  const percents = points.map((point) => pctOf(point.value))
+  const min = Math.min(...percents)
+  const max = Math.max(...percents)
+  const scale =
+    min === max
+      ? niceScale([min - FLAT_PERCENT_BAND, max + FLAT_PERCENT_BAND], tickCount)
+      : niceScale(percents, tickCount)
+
+  return {
+    base,
+    domain: [base * (1 + scale.domain[0]), base * (1 + scale.domain[1])],
+    ticks: scale.ticks.map((tick) => base * (1 + tick)),
+    pctOf,
+  }
+}

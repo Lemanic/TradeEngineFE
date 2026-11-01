@@ -69,7 +69,7 @@ src/
 │   ├── use-money.ts          # formatowanie kwot świadome trybu prywatnego
 │   ├── palette.ts            # nazwa źródła → slot --chart-N
 │   ├── aggregate.ts          # top 5 + „Inne”, sortowanie pozycji
-│   ├── chart-scale.ts        # okrągłe wartości na osi Y
+│   ├── chart-scale.ts        # okrągłe wartości na osi Y (kwotowej i procentowej)
 │   └── components/           # widok (tylko propsy, zero importu fixtures)
 ├── hooks/                    # use-theme, use-privacy, use-prefers-reduced-motion
 ├── lib/                      # theme.ts, privacy.ts, utils.ts (cn)
@@ -134,10 +134,23 @@ Zasady:
 
 ## Tryb prywatny
 
-Kwoty **i ilości** zamieniane na `•••••`; procenty i kształt wykresu zostają,
-oś Y się chowa. Maskowanie dzieje się na poziomie formatowania (`use-money.ts`),
-nie CSS-em — w trybie prywatnym żadna kwota nie trafia do DOM, także do tooltipów.
-Test `privacy.test.tsx` tego pilnuje.
+Kwoty **i ilości** zamieniane na `•••••`; procenty i kształt wykresu zostają.
+Oś Y wykresu wartości **nie chowa się — przełącza się na procenty** wobec
+pierwszego **pełnego** snapshotu wybranego zakresu (`percentScale`
+w `chart-scale.ts`). Niepełny snapshot ma zaniżoną wartość, więc jako baza
+wypchnąłby całą krzywą nad linię zera. Dane wykresu zostają kwotowe,
+przeliczane są same ticki (`base * (1 + pct)`) — krzywa, domena i gradient nie
+wiedzą o zmianie jednostki, a oś pokazuje okrągłe procenty, nie procenty
+wynikłe z okrągłych kwot. Bazę zaznacza przerywana linia zera, a tooltip
+pokazuje procent zamiast maski. Gdy dodatniej bazy nie ma (portfel wystartował
+od zera), oś znika jak wcześniej.
+
+Procent liczy się wprost z wartości portfela, więc — tak jak delta w hero —
+obejmuje wpłaty i wypłaty, nie tylko wynik inwestycji.
+
+Maskowanie dzieje się na poziomie formatowania (`use-money.ts`), nie CSS-em —
+w trybie prywatnym żadna kwota nie trafia do DOM, także do tooltipów.
+Pilnują tego `privacy.test.tsx` i `value-chart.test.tsx`.
 
 ## Konwencje
 

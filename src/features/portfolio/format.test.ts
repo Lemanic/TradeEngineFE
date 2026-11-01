@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   formatAmount,
+  formatAxisPercent,
   formatAxisTick,
   formatCompactMoney,
   formatDate,
@@ -69,6 +70,14 @@ describe('procenty', () => {
 
   it('udział w portfelu ma jedno miejsce po przecinku', () => {
     expect(formatShare(0.4217)).toBe('42,2%')
+  })
+
+  it('oś procentowa ma jedno miejsce, a zero nie ma znaku', () => {
+    expect(formatAxisPercent(0.025)).toBe('+2,5%')
+    expect(formatAxisPercent(-0.012)).toBe('-1,2%')
+    // Zero na osi to linia odniesienia, nie zmiana — „+0%” sugerowałoby wzrost.
+    expect(formatAxisPercent(0)).toBe('0%')
+    expect(formatAxisPercent(-0)).toBe('0%')
   })
 })
 
